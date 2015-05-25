@@ -75,6 +75,7 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument("search", type=str)
 parser.add_argument("--album", "-album", "-a", action="store_true", default=False)
+parser.add_argument("--manual", "-manual", "-m", action="store_true", default=False)
 
 args = parser.parse_args()
 
@@ -83,6 +84,7 @@ findAlbum = False
 if args.search:
     search = args.search
 findAlbum = args.album
+auto = not args.manual
 
 if findAlbum:
     first_char = search[0]
@@ -130,7 +132,8 @@ if findAlbum:
             key = matches[i]
             print("%d. %3d%%   %s" % (i + 1, key[0], key[1]))
         j = int(input("Please select the album: "))
-        album = matches[j - 1]
+        album = matches[j-1]
+        print("You selected %d. %s" % (j, album[1]))
     pos = album[2]
     if pos != -1:
         tag = getBetween(source, "<", ">", pos)
@@ -140,22 +143,17 @@ if findAlbum:
             print("Could not load album page!")
             sys.exit(1)
         source = getBetween(response, "<body", "</body>")                   # get only source between body to avoid scripts
-        song_link_match = "http://link.songspk.name/song.php?songid="
+        song_link_match = "http:\/\/link[\d]?\.songspk\.name\/song[\d]?\.php\?songid=[\d]+"
         startpos = 0
-        while True:
-            startpos = source.find(song_link_match, startpos)
-            if startpos == -1:
-                break
-            endpos = source.find('">', startpos)
-            song_link = source[startpos:endpos]
-            song_title = re.sub("\s+", " ", getBetween(source, '">', "</a", endpos)).strip()
-            if len(song_title) > 35:
+        for m in re.finditer(song_link_match, source):
+            song_link = m.group(0)
+            song_title = re.sub("\s+", " ", getBetween(source, '">', "</a", m.end())).strip()
+            if len(song_title) > 50:
                 print("Possible error scraping song title...")
-                song_title = uuid.uuid4()
+                song_title = str(uuid.uuid4())
             print(song_link)
             file_dir = os.path.join(DOWNLOAD_LOCATION, album[1])
             if not os.path.isdir(file_dir):
                 os.makedirs(file_dir)
             # urllib.request.urlretrieve(song_link, os.path.join(DOWNLOAD_LOCATION, song_title + ".mp3"))
             downloadFile(song_link, os.path.join(file_dir, song_title + ".mp3"))
-            startpos = endpos
