@@ -20,7 +20,7 @@ import shutil
 
 def testURL():
     import urllib
-    response = urllib.request.urlopen("http://bollystop.com/show/id/83440/Jodhaa-Akbar.html")
+    response = urllib.request.urlopen("http://www.hindistop.com/chakravartin-ashoka-samrat-2/")
     if response:
         print(response.readall().decode('utf-8'))
 
