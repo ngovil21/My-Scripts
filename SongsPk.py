@@ -18,6 +18,12 @@ import uuid
 import shutil
 
 
+def testURL():
+    import urllib
+    response = urllib.request.urlopen("http://bollystop.com/show/id/83440/Jodhaa-Akbar.html")
+    if response:
+        print(response.readall().decode('utf-8'))
+
 def getBetween(string, t1, t2, start=0):
     startIndex = string.find(t1, start)
     if startIndex == -1:
