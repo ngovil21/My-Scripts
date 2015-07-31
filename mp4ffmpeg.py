@@ -18,7 +18,8 @@ audio_codec = 'libfdk_aac'
 audio_type = 'aac'
 crf = "18"
 vbr = ''
-threads = 1
+extract_subtitle = True
+threads = 0
 additional_ffmpeg = '-preset veryfast -movflags +faststart'
 
 outformat = 'mp4'
@@ -31,13 +32,12 @@ elif outmode == 'mkv':
 def ffmpeg(*args, **kwargs):
     largs = [ffmpeg_exe, ]
     largs.extend(args)
-    print(largs)
     return subprocess.check_output(largs, **kwargs).decode('utf-8')
 
 
 formats = ""
-if subprocess.check_output([ffmpeg_exe, '-formats'], stderr=subprocess.DEVNULL):
-    formats = subprocess.check_output(([ffmpeg_exe, '-formats', '2'])).decode('utf-8')
+if subprocess.getoutput(ffmpeg_exe + ' -formats'):
+    formats = subprocess.getoutput(ffmpeg_exe + ' -formats 2')
 else:
     exit(1)
 
@@ -47,7 +47,7 @@ else:
     print("You do not have both the mkv and mp4 formats...Exiting!")
     exit(1)
 
-codecs = ffmpeg('-codecs', '2')
+codecs = subprocess.getoutput(ffmpeg_exe + ' -codecs 2')
 
 if video_codec in codecs:
     print("Check " + video_codec + " Audio Encoder ... OK")
@@ -61,7 +61,7 @@ else:
     print("Check " + audio_codec + " Audio Encoder ... NOK")
     exit(1)
 
-print("Your FFMpeg is OK\nEntering File Processing")
+print("Your FFMpeg is OK\nEntering File Processing\n")
 
 
 def processFile(path, file):
@@ -71,12 +71,11 @@ def processFile(path, file):
     if extension in accept_ext:
         print(file + " is an acceptable extension. Checking file...")
     else:
-        print(extension)
         print(file + " is not an acceptable extension. Skipping...")
         return
 
     if ffprobe_exe:
-        file_info = subprocess.check_output([ffprobe_exe, '-i', os.path.join(path, file)]).decode('utf-8')
+        file_info = subprocess.getoutput('"' + ffprobe_exe + '"' + " " + '"' + os.path.join(path, file) + '"')
     else:
         file_info = ffmpeg("-i", os.path.join(path, file), stderr=subprocess.DEVNULL)
 
@@ -85,7 +84,7 @@ def processFile(path, file):
         return
 
     encode_crf = []
-    if "Video: " + video_type in file_info:
+    if file_info.find("Video: " + video_type) != -1:
         vcodec = 'copy'
         print("Video is " + video_type + ", remuxing....")
     else:
@@ -109,33 +108,48 @@ def processFile(path, file):
         return
 
     print(
-        "Using video codec: " + vcodec + " audio codec: " + acodec + " and Container format " + outformat + " for\nFile: " + file + "\nStarting Conversion...")
+        "Using video codec: " + vcodec + " audio codec: " + acodec + " and Container format " + outformat + " for\nFile: " + file + "\nStarting Conversion...\n")
 
     filename = filename.replace("XVID", video_type)
     filename = filename.replace("xvid", video_type)
 
-    args = ['-i',os.path.join(path,file), '-y', '-f', outformat, '-acodec', acodec]
-    if encode_vbr:
-        args.extend(encode_vbr)
-    args.extend(['-vcodec', vcodec])
-    if encode_crf:
-        args.extend(encode_crf)
-    if additional_ffmpeg:
-        args.extend(additional_ffmpeg.split(" "))
-    if threads:
-        args.extend(['-threads', str(threads)])
-    args.append(os.path.join(path,filename + '.temp'))
-    ffmpeg(*args)
+    try:
+        args = ['-i', os.path.join(path, file), '-y', '-f', outformat, '-acodec', acodec]
+        if encode_vbr:
+            args.extend(encode_vbr)
+        args.extend(['-vcodec', vcodec])
+        if encode_crf:
+            args.extend(encode_crf)
+        if additional_ffmpeg:
+            args.extend(additional_ffmpeg.split(" "))
+        if threads:
+            args.extend(['-threads', str(threads)])
+        args.append(os.path.join(path, filename + '.temp'))
+        ffmpeg(*args)
+    except Exception as e:
+        print("Error: %s" % e)
+        print("Removing temp file and skipping file")
+        os.remove(os.path.join(path, filename + '.temp'))
+        return
+
+    if extract_subtitle and (file_info.find("Subtitle:") != -1):
+        print("Extracting First Subtitle")
+        try:
+            ffmpeg("-i", os.path.join(path, file), 'c:s:0', 'srt', os.path.join(path, filename + '.srt'))
+        except Exception as e:
+            print("Error: %s" % e)
+            print("Deleting subtitle.")
+            os.remove(os.path.join(path, filename + 'srt'))
 
     if remover:
         print("Deleting original file: " + file)
         os.remove(os.path.join(path, file))
 
     if outmode == extension:
-        shutil.move(os.path.join(path,filename + ".temp"), os.path.join(path,filename + ".enc." + outmode))
+        shutil.move(os.path.join(path, filename + ".temp"), os.path.join(path, filename + ".enc." + outmode))
         filename += ".enc"
     else:
-        shutil.move(filename + ".temp", filename + "." + outmode)
+        shutil.move(os.path.join(path, filename + ".temp"), os.path.join(path, filename + "." + outmode))
 
 
 def processDirectory(path):
