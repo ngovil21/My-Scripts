@@ -1,17 +1,19 @@
 import os
-import shutil
 import sys
+import re
+import shutil
+import subprocess
 
 __author__ = 'Nikhil'
 
-import subprocess
 
 outmode = 'mp4'
-remover = False
+remover = True
 accept_ext = 'mp4 mkv avi divx m4v mpeg mpg wmv'
 
 ffmpeg_exe = "C:\\Users\\Nikhil\\local64\\bin-video\\ffmpeg.exe"
 ffprobe_exe = "C:\\Users\\Nikhil\\local64\\bin-video\\ffprobe.exe"
+mkvextract_exe = "C:\\Users\\Nikhil\\local64\\bin-video\\mkvextract.exe"
 video_codec = 'libx264'
 video_type = 'h264'
 audio_codec = 'libfdk_aac'
@@ -19,6 +21,7 @@ audio_type = 'aac'
 crf = "18"
 vbr = ''
 extract_subtitle = True
+subtitle_languages = "en eng english"
 threads = 0
 additional_ffmpeg = '-preset veryfast -movflags +faststart'
 
@@ -126,20 +129,41 @@ def processFile(path, file):
             args.extend(['-threads', str(threads)])
         args.append(os.path.join(path, filename + '.temp'))
         ffmpeg(*args)
+        print("")
     except Exception as e:
         print("Error: %s" % e)
         print("Removing temp file and skipping file")
-        os.remove(os.path.join(path, filename + '.temp'))
+        if os.path.isfile(os.path.join(path, filename + '.temp')):
+            os.remove(os.path.join(path, filename + '.temp'))
         return
 
     if extract_subtitle and (file_info.find("Subtitle:") != -1):
         print("Extracting First Subtitle")
-        try:
-            ffmpeg("-i", os.path.join(path, file), 'c:s:0', 'srt', os.path.join(path, filename + '.srt'))
-        except Exception as e:
-            print("Error: %s" % e)
-            print("Deleting subtitle.")
-            os.remove(os.path.join(path, filename + 'srt'))
+        matches = re.finditer("Stream #(\d+):(\d+)\((\w+)\): Subtitle: (.*)", file_info)
+        for m in matches:
+            if m.group(3) not in subtitle_languages.split(" "):
+                continue
+            try:
+                if 'subrip' in m.group(4):
+                    sub_format = 'copy'
+                    sub_ext = '.srt'
+                if 'hdmv_pgs' in m.group(4):
+                    subprocess.check_output([mkvextract_exe, 'tracks', os.path.join(path, file),
+                                             m.group(2) + ':' + os.path.join(path, filename + '.' + m.group(
+                                                 3) + '.' + m.group(2) + '.sup')])
+                    continue
+                else:
+                    sub_format = '.srt'
+                    sub_ext = '.srt'
+                ffmpeg("-i", os.path.join(path, file), '-y', '-map', m.group(1) + ':' + m.group(2), '-c:s:0',
+                       sub_format,
+                       os.path.join(path, filename + '.' + m.group(3) + '.' + m.group(2) + sub_ext))
+                print("")
+            except Exception as e:
+                print("Error: %s" % e)
+                print("Deleting subtitle.")
+                if os.path.isfile(os.path.join(path, filename + '.' + m.group(3) + '.' + m.group(2) + sub_ext)):
+                    os.remove(os.path.join(path, filename + '.' + m.group(3) + '.' + m.group(2) + sub_ext))
 
     if remover:
         print("Deleting original file: " + file)
