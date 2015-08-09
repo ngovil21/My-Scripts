@@ -66,6 +66,7 @@ else:
 
 print("Your FFMpeg is OK\nEntering File Processing\n")
 
+subtitle_languages = subtitle_languages.lower()
 
 def processFile(path, file):
     extension = os.path.splitext(file)[1].replace(".", "")
@@ -138,22 +139,22 @@ def processFile(path, file):
         return
 
     if extract_subtitle and (file_info.find("Subtitle:") != -1):
-        print("Extracting First Subtitle")
+        print("Extracting Subtitles")
         matches = re.finditer("Stream #(\d+):(\d+)\((\w+)\): Subtitle: (.*)", file_info)
         for m in matches:
-            if m.group(3) not in subtitle_languages.split(" "):
+            if m.group(3).lower() not in subtitle_languages.split(" "):
                 continue
             try:
                 if 'subrip' in m.group(4):
                     sub_format = 'copy'
                     sub_ext = '.srt'
-                if 'hdmv_pgs' in m.group(4):
+                elif 'hdmv_pgs' in m.group(4):
                     subprocess.check_output([mkvextract_exe, 'tracks', os.path.join(path, file),
                                              m.group(2) + ':' + os.path.join(path, filename + '.' + m.group(
                                                  3) + '.' + m.group(2) + '.sup')])
                     continue
                 else:
-                    sub_format = '.srt'
+                    sub_format = 'srt'
                     sub_ext = '.srt'
                 ffmpeg("-i", os.path.join(path, file), '-y', '-map', m.group(1) + ':' + m.group(2), '-c:s:0',
                        sub_format,
