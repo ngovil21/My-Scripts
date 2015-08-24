@@ -4,6 +4,7 @@ import re
 import shutil
 import subprocess
 
+
 __author__ = 'Nikhil'
 
 
@@ -35,12 +36,23 @@ elif outmode == 'mkv':
 def ffmpeg(*args, **kwargs):
     largs = [ffmpeg_exe, ]
     largs.extend(args)
-    return subprocess.check_output(largs, **kwargs).decode('utf-8')
+    try:
+        return subprocess.check_output(largs, **kwargs).decode('utf-8')
+    except:
+        return None
 
+def getoutput(cmd):
+    if sys.version < '3':
+        try:
+            return subprocess.check_output(cmd.split(' '))
+        except:
+            return None
+    else:
+        return subprocess.getoutput(cmd)
 
 formats = ""
-if subprocess.getoutput(ffmpeg_exe + ' -formats'):
-    formats = subprocess.getoutput(ffmpeg_exe + ' -formats 2')
+if getoutput(ffmpeg_exe + ' -formats'):
+    formats = getoutput(ffmpeg_exe + ' -formats 2')
 else:
     exit(1)
 
@@ -50,7 +62,7 @@ else:
     print("You do not have both the mkv and mp4 formats...Exiting!")
     exit(1)
 
-codecs = subprocess.getoutput(ffmpeg_exe + ' -codecs 2')
+codecs = getoutput(ffmpeg_exe + ' -codecs 2')
 
 if video_codec in codecs:
     print("Check " + video_codec + " Audio Encoder ... OK")
@@ -68,7 +80,7 @@ print("Your FFMpeg is OK\nEntering File Processing\n")
 
 subtitle_languages = subtitle_languages.lower()
 
-def processFile(path, file):
+def process_file(path, file):
     extension = os.path.splitext(file)[1].replace(".", "")
     filename = os.path.splitext(file)[0]
 
@@ -81,7 +93,7 @@ def processFile(path, file):
     if ffprobe_exe:
         file_info = subprocess.getoutput('"' + ffprobe_exe + '"' + " " + '"' + os.path.join(path, file) + '"')
     else:
-        file_info = ffmpeg("-i", os.path.join(path, file), stderr=subprocess.DEVNULL)
+        file_info = ffmpeg("-i", os.path.join(path, file))
 
     if 'Invalid data found' in file_info:
         print("File " + file + " is NOT A VIDEO FILE cannot be converted!")
@@ -177,19 +189,19 @@ def processFile(path, file):
         shutil.move(os.path.join(path, filename + ".temp"), os.path.join(path, filename + "." + outmode))
 
 
-def processDirectory(path):
+def process_directory(path):
     if os.path.isfile(os.path.join(path, ".noconvert")):
         return
     for file in os.listdir(path):
         filepath = os.path.join(path, file)
         if os.path.isdir(filepath):
-            processDirectory(filepath)
+            process_directory(filepath)
         elif os.path.isfile(filepath):
-            processFile(path, file)
+            process_file(path, file)
 
 
 for arg in sys.argv[1:]:
     if os.path.isdir(arg):
-        processDirectory(arg)
+        process_directory(arg)
     elif os.path.isfile(arg):
-        processFile(os.path.dirname(arg), os.path.basename(arg))
+        process_file(os.path.dirname(arg), os.path.basename(arg))
