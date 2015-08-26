@@ -91,7 +91,7 @@ def process_file(path, file):
         return
 
     if ffprobe_exe:
-        file_info = subprocess.getoutput('"' + ffprobe_exe + '"' + " " + '"' + os.path.join(path, file) + '"')
+        file_info = getoutput('"' + ffprobe_exe + '"' + " " + '"' + os.path.join(path, file) + '"')
     else:
         file_info = ffmpeg("-i", os.path.join(path, file))
 
