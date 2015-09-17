@@ -10,7 +10,7 @@ __author__ = 'Nikhil'
 
 outmode = 'mp4'
 remover = True
-accept_ext = 'mp4 mkv avi divx m4v mpeg mpg wmv'
+accept_ext = 'mp4 mkv avi divx m4v mpeg mpg wmv flv'
 
 ffmpeg_exe = "C:\\Users\\Nikhil\\local64\\bin-video\\ffmpeg.exe"
 ffprobe_exe = "C:\\Users\\Nikhil\\local64\\bin-video\\ffprobe.exe"
