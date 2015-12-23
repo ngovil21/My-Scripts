@@ -9,8 +9,8 @@ __author__ = 'Nikhil'
 
 
 outmode = 'mp4'
-remover = True
-accept_ext = 'mp4 mkv avi divx m4v mpeg mpg wmv flv'
+delete_original_file = False
+accept_ext = 'mp4 mkv avi divx m4v mpeg mpg wmv flv mov'
 
 ffmpeg_exe = "C:\\Users\\Nikhil\\local64\\bin-video\\ffmpeg.exe"
 ffprobe_exe = "C:\\Users\\Nikhil\\local64\\bin-video\\ffprobe.exe"
@@ -22,9 +22,11 @@ audio_type = 'aac'
 crf = "18"
 vbr = ''
 extract_subtitle = True
-subtitle_languages = "en eng english"
+languages = "en eng english"
 threads = 0
-additional_ffmpeg = '-preset veryfast -movflags +faststart'
+additional_ffmpeg = '-preset fast -movflags +faststart'
+
+map_outputs = True
 
 outformat = 'mp4'
 if outmode == 'mp4':
@@ -78,7 +80,7 @@ else:
 
 print("Your FFMpeg is OK\nEntering File Processing\n")
 
-subtitle_languages = subtitle_languages.lower()
+languages = languages.lower()
 
 def process_file(path, file):
     extension = os.path.splitext(file)[1].replace(".", "")
@@ -123,6 +125,30 @@ def process_file(path, file):
         print(file + " is already " + outmode + " and no conversion needed. Skipping...")
         return
 
+    maps = []
+    if map_outputs:
+        #Find first video stream, map to stream 0
+        match = re.search("Stream #(\d+):(\d+)\((\w+)\): Video: (.*)", file_info)
+        if match:
+            maps.append(match.group(1) + ":" + match.group(2))
+        else:
+            print("No video stream found!")
+            return
+        matches = re.findall("Stream #(\d+):(\d+)\((\w+)\): Audio: (.*)", file_info)
+        found_stream = False
+        if not matches:
+            print("No audio streams found!")
+            return
+        for m in matches:
+            if m[2].lower() in languages.split(" "):
+                maps.append(m[0] + ":" + m[1])
+                found_stream = True
+                break
+        if not found_stream:
+            maps.append(matches[0][0] + ":" + matches[0][1])
+        print(maps)
+
+
     print(
         "Using video codec: " + vcodec + " audio codec: " + acodec + " and Container format " + outformat + " for\nFile: " + file + "\nStarting Conversion...\n")
 
@@ -130,7 +156,11 @@ def process_file(path, file):
     filename = filename.replace("xvid", video_type)
 
     try:
-        args = ['-i', os.path.join(path, file), '-y', '-f', outformat, '-acodec', acodec]
+        args = ['-i', os.path.join(path, file), '-y', '-f', outformat]
+        if maps:
+            for m in maps:
+                args.extend(['-map', m])
+        args.extend(['-acodec', acodec])
         if encode_vbr:
             args.extend(encode_vbr)
         args.extend(['-vcodec', vcodec])
@@ -154,13 +184,13 @@ def process_file(path, file):
         print("Extracting Subtitles")
         matches = re.finditer("Stream #(\d+):(\d+)\((\w+)\): Subtitle: (.*)", file_info)
         for m in matches:
-            if m.group(3).lower() not in subtitle_languages.split(" "):
+            if m.group(3).lower() not in languages.split(" "):
                 continue
             try:
                 if 'subrip' in m.group(4):
                     sub_format = 'copy'
                     sub_ext = '.srt'
-                elif 'hdmv_pgs' in m.group(4):
+                elif 'hdmv_pgs' in m.group(4) and mkvextract_exe:
                     subprocess.check_output([mkvextract_exe, 'tracks', os.path.join(path, file),
                                              m.group(2) + ':' + os.path.join(path, filename + '.' + m.group(
                                                  3) + '.' + m.group(2) + '.sup')])
@@ -178,7 +208,7 @@ def process_file(path, file):
                 if os.path.isfile(os.path.join(path, filename + '.' + m.group(3) + '.' + m.group(2) + sub_ext)):
                     os.remove(os.path.join(path, filename + '.' + m.group(3) + '.' + m.group(2) + sub_ext))
 
-    if remover:
+    if delete_original_file:
         print("Deleting original file: " + file)
         os.remove(os.path.join(path, file))
 
