@@ -128,7 +128,7 @@ def process_file(path, file):
     maps = []
     if map_outputs:
         #Find first video stream, map to stream 0
-        match = re.search("Stream #(\d+):(\d+)\((\w+)\): Video: (.*)", file_info)
+        match = re.search("Stream #(\d+):(\d+)(\((\w+)\))?: Video: (.*)", file_info)
         if match:
             maps.append(match.group(1) + ":" + match.group(2))
         else:
@@ -136,17 +136,14 @@ def process_file(path, file):
             return
         matches = re.findall("Stream #(\d+):(\d+)\((\w+)\): Audio: (.*)", file_info)
         found_stream = False
-        if not matches:
-            print("No audio streams found!")
-            return
         for m in matches:
             if m[2].lower() in languages.split(" "):
                 maps.append(m[0] + ":" + m[1])
                 found_stream = True
                 break
         if not found_stream:
-            maps.append(matches[0][0] + ":" + matches[0][1])
-        print(maps)
+            print("Language not found! Not mapping...")
+            maps = []
 
 
     print(
