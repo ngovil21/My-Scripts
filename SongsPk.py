@@ -1,6 +1,6 @@
 __author__ = 'Nikhil'
 
-DOWNLOAD_LOCATION = "C:\\Users\\Nikhil\\Downloads\\MP3"
+DOWNLOAD_LOCATION = ""
 MINIMUM_MATCH = 70
 
 auto = True
